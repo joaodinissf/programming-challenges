@@ -12,9 +12,9 @@ def main():
     # test = False
 
     if test:
-        file_name = "dx/dx-p1-sample.txt"
+        file_name = "d3/d3-p1-sample.txt"
     else:
-        file_name = "dx/dx-p1.txt"
+        file_name = "d3/d3-p1.txt"
 
     expected_solution = 0
 
