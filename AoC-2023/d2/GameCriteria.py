@@ -8,11 +8,7 @@ class GameCriteria:
         self.blue = blue
 
     def is_round_possible(self, round: Round):
-        return (
-            round.red <= self.red
-            and round.green <= self.green
-            and round.blue <= self.blue
-        )
+        return round.red <= self.red and round.green <= self.green and round.blue <= self.blue
 
     def is_game_possible(self, game: Game):
         for round in game.rounds:
