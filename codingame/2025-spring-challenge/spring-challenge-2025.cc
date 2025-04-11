@@ -16,7 +16,7 @@ using namespace std;
 // TODO And then it would be possible to compute this by doing (tree(basenode) -
 // tree(basenode after max depth))
 
-const int32_t SQUARES_MASK[9] = {
+const int32_t DIGITS_MASK[9] = {
     100000000, 10000000, 1000000, 100000, 10000, 1000, 100, 10, 1,
 };
 
@@ -26,21 +26,50 @@ const int32_t CAPTURING_SUMS[11][4] = {
     {1, 1, 0, 1}, {1, 1, 1, 0}, {1, 1, 1, 1},
 };
 
-// const int32_t CAPTURE_MASKS[9] = {1010,     10101,     100010,
-//                                   1010001,  10101010,  100010100,
-//                                   10001000, 101010000, 10100000};
+// The first number in each vector is the index of the square where the move is
+// made The second to last numbers in each vector are the potential neighbors to
+// be captured
+const vector<vector<int32_t>> CAPTURING_POSSIBILITIES = {
+    {0, 1, 3}, //
 
-// const vector<vector<int32_t>> NEIGHBOR_MASKS_IX[9] = {
-//     {{3, 1}},       // 1010
-//     {{4, 2, 0}},    // 10101
-//     {{5, 1}},       // 100010
-//     {{6, 3, 0}},    // 1010001
-//     {{7, 5, 3, 1}}, // 10101010
-//     {{8, 5, 2}},    // 100010100
-//     {{7, 3}},       // 10001000
-//     {{8, 6, 4}},    // 101010000
-//     {{7, 5}},       // 10100000
-// };
+    {1, 0, 2, 4}, //
+    {1, 0, 2},    //
+    {1, 0, 4},    //
+    {1, 2, 4},    //
+
+    {2, 1, 5}, //
+
+    {3, 0, 4, 6}, //
+    {3, 0, 4},    //
+    {3, 0, 6},    //
+    {3, 4, 6},    //
+
+    {4, 1, 3, 5, 7}, //
+    {4, 1, 3, 5},    //
+    {4, 1, 3, 7},    //
+    {4, 1, 5, 7},    //
+    {4, 3, 5, 7},    //
+    {4, 1, 3},       //
+    {4, 1, 5},       //
+    {4, 1, 7},       //
+    {4, 3, 5},       //
+    {4, 3, 7},       //
+    {4, 5, 7},       //
+
+    {5, 2, 4, 8}, //
+    {5, 2, 4},    //
+    {5, 2, 8},    //
+    {5, 4, 8},    //
+
+    {6, 3, 7}, //
+
+    {7, 4, 6, 8}, //
+    {7, 4, 6},    //
+    {7, 4, 8},    //
+    {7, 6, 8},    //
+
+    {8, 5, 7}, //
+};
 
 // Keep track of how many captures for each of the 11 combinations in
 // CAPTURING_SUMS Count of 1's in each of the CAPTURING_SUMS combinations
@@ -50,7 +79,10 @@ int32_t CAPTURE_COUNTS[11] = {2, 2, 2, 3, 2, 2, 3, 2, 3, 3, 4};
 unordered_map<int32_t, vector<int32_t>> next_positions_cache;
 
 int32_t inline get_board_pos(int32_t board, int32_t x, int32_t y) {
-  return board / SQUARES_MASK[x * 3 + y] % 10;
+  return board / DIGITS_MASK[x * 3 + y] % 10;
+}
+int32_t inline get_board_pos(int32_t board, int32_t offset) {
+  return board / DIGITS_MASK[offset] % 10;
 }
 
 void reached_final_position(const int32_t &board, const int32_t &num_reps,
@@ -74,77 +106,77 @@ void reached_final_position(const int32_t &board, const int32_t &num_reps,
 }
 
 // TODO Optimize this to avoid the vector and the digit extraction
-// vector<int32_t> calculate_next_captures_v2(const int32_t &position) {
-//   vector<int32_t> next_positions;
-//   vector<int32_t> position_as_vector(9);
-//   int32_t digit = 100000000;
-//   for (int32_t i = 0; i < 9; i++) {
-//     position_as_vector[i] = position / digit % 10;
-//     digit /= 10;
-//   }
+vector<int32_t> calculate_next_captures_v2(const int32_t &position) {
+  // This function was the bottleneck in my previous solution, so I
+  // am optimizing maximally by unrolling the loops and hardcoding as much
+  // as possible, maximizing data reuse.
 
-//   // Look for available captures
-//   for (digit = 0; digit < 9;
-//        digit++) { // TODO Consider replacing this with inline iteration
-//        through
-//                   // arithmetic rather than a vector
-//     if (position_as_vector[digit] != 0) {
-//       continue;
-//     }
+  // Reserve a sensible possible number of follow-up positions (empirically), to
+  // minimize vector resizing
+  vector<int32_t> next_positions;
+  next_positions.reserve(8);
 
-//     // Check if this position can capture
-//     bool have_captured = false;
-//     vector<int32_t> neighbors(4);
-//     neighbors[0] = digit - 3 > 0 ? position_as_vector[digit - 3] : 0;
-//     neighbors[1] = digit + 3 < 9 ? position_as_vector[digit + 3] : 0;
-//     neighbors[2] = digit % 3 > 0 ? position_as_vector[digit - 1] : 0;
-//     neighbors[3] = digit % 3 < 2 ? position_as_vector[digit + 1] : 0;
+  // There will be a lot of reuse, so worth creating
+  int32_t position_as_vector[9];
+  int32_t current_position = position;
+  for (int32_t i = 8; i >= 0; --i) {
+    position_as_vector[i] = current_position % 10;
+    current_position /= 10;
+  }
 
-//     for (auto capture : CAPTURING_SUMS) {
-//       vector<int32_t> capture_mask;
-//       int32_t capture_sum = 0;
-//       int32_t num_dice_to_capture = 0;
-//       for (int32_t k = 0; k < 4; k++) {
-//         if (capture[k] && neighbors[k]) {
-//           switch (k) {
-//           case 0:
-//             capture_mask.push_back(digit - 3);
-//             break;
-//           case 1:
-//             capture_mask.push_back(digit + 3);
-//             break;
-//           case 2:
-//             capture_mask.push_back(digit - 1);
-//             break;
-//           case 3:
-//             capture_mask.push_back(digit + 1);
-//             break;
-//           }
-//           capture_sum += neighbors[k];
-//           num_dice_to_capture += neighbors[k];
-//         }
-//       }
-//       if (num_dice_to_capture >= 2 && capture_sum <= 6 && capture_sum > 0) {
-//         // This is a valid capture
-//         have_captured = true;
-//         int32_t next_position = position;
-//         // Remove the dice from the neighbors
-//         for (const auto &neighbor : capture_mask) {
-//           next_position -=
-//               SQUARES_MASK[neighbor] * position_as_vector[neighbor];
-//         }
-//         next_positions.push_back(next_position);
-//       }
-//     }
+  vector<bool> should_place_die_with_value_1(9, true);
+  for (const vector<int32_t> &capturing_possibility : CAPTURING_POSSIBILITIES) {
+    const int32_t digit = capturing_possibility[0];
+    if (position_as_vector[digit] != 0) {
+      // if (get_board_pos(position, digit) != 0) {
+      // This is not a valid position to place a die
+      // This optimizes the check further below
+      should_place_die_with_value_1[digit] = false;
+      continue;
+    }
 
-//     // If there are no captures, just add a die
-//     if (!have_captured) {
-//       next_positions.push_back(position + digit);
-//     }
-//   }
+    // Only search this possibility if ALL neighboring dice are >0
+    bool abort_search = false;
+    int32_t capture_sum = 0;
+    for (uint32_t k = 1; k < capturing_possibility.size(); k++) {
+      // capture_sum += get_board_pos(position, capturing_possibility[k]);
+      if (position_as_vector[capturing_possibility[k]] > 0) {
+        capture_sum += position_as_vector[capturing_possibility[k]];
+      } else {
+        abort_search = true;
+        break;
+      }
+    }
 
-//   return next_positions;
-// }
+    if (!abort_search && capture_sum > 0 && capture_sum <= 6) {
+      // There is at least one valid capture for this digit,
+      // so don't place a die with value 1 for this digit
+      should_place_die_with_value_1[digit] = false;
+
+      // Construct the next_position off of the current one
+      int32_t next_position = position;
+      // Add the die to the position
+      next_position += DIGITS_MASK[digit] * capture_sum;
+      // Remove the dice from the neighbors
+      for (uint32_t k = 1; k < capturing_possibility.size(); k++) {
+        next_position -= DIGITS_MASK[capturing_possibility[k]] *
+                         position_as_vector[capturing_possibility[k]];
+        //  get_board_pos(position, capturing_possibility[k]);
+        ;
+      }
+
+      next_positions.push_back(next_position);
+    }
+  }
+
+  for (int32_t digit = 0; digit < 9; digit++) {
+    if (should_place_die_with_value_1[digit]) {
+      next_positions.push_back(position + DIGITS_MASK[digit]);
+    }
+  }
+
+  return next_positions;
+}
 
 vector<int32_t> calculate_next_captures(const int32_t &position) {
   vector<int32_t> next_positions;
@@ -163,7 +195,7 @@ vector<int32_t> calculate_next_captures(const int32_t &position) {
             j + 1 > 2 ? -1 : get_board_pos(position, i, j + 1),
         };
 
-        int combination_ix = 0;
+        int32_t combination_ix = 0;
         for (const int32_t (&combination)[4] : CAPTURING_SUMS) {
           int32_t capture_sum = 0;
           int32_t num_dice_to_capture = 0;
@@ -180,25 +212,25 @@ vector<int32_t> calculate_next_captures(const int32_t &position) {
               capture_sum <= 6) {
             int32_t capture_mask = 0;
             if (combination[0]) {
-              capture_mask += SQUARES_MASK[(i - 1) * 3 + j] *
+              capture_mask += DIGITS_MASK[(i - 1) * 3 + j] *
                               get_board_pos(position, i - 1, j);
             }
             if (combination[1]) {
-              capture_mask += SQUARES_MASK[(i + 1) * 3 + j] *
+              capture_mask += DIGITS_MASK[(i + 1) * 3 + j] *
                               get_board_pos(position, i + 1, j);
             }
             if (combination[2]) {
-              capture_mask += SQUARES_MASK[(i * 3) + (j - 1)] *
+              capture_mask += DIGITS_MASK[(i * 3) + (j - 1)] *
                               get_board_pos(position, i, j - 1);
             }
             if (combination[3]) {
-              capture_mask += SQUARES_MASK[i * 3 + (j + 1)] *
+              capture_mask += DIGITS_MASK[i * 3 + (j + 1)] *
                               get_board_pos(position, i, j + 1);
             }
 
             // Captures are mandatory
             int32_t board =
-                position + SQUARES_MASK[i * 3 + j] * capture_sum - capture_mask;
+                position + DIGITS_MASK[i * 3 + j] * capture_sum - capture_mask;
             next_positions.push_back(board);
             have_captured = true;
           }
@@ -208,7 +240,7 @@ vector<int32_t> calculate_next_captures(const int32_t &position) {
         // Register that you can also just add a die, unless a capture is
         // possible at this location
         if (!have_captured) {
-          int32_t board = position + SQUARES_MASK[i * 3 + j];
+          int32_t board = position + DIGITS_MASK[i * 3 + j];
           next_positions.push_back(board);
         }
       }
@@ -218,12 +250,34 @@ vector<int32_t> calculate_next_captures(const int32_t &position) {
   return next_positions;
 }
 
+void assert_functional_equivalence_v2(int32_t position,
+                                      vector<int32_t> next_boards) {
+  vector<int32_t> next_boards_v1 = calculate_next_captures(position);
+
+  assert(next_boards.size() == next_boards_v1.size());
+
+  sort(next_boards.begin(), next_boards.end());
+  sort(next_boards_v1.begin(), next_boards_v1.end());
+
+  // for (size_t i = 0; i < next_boards.size(); i++) {
+  //   if (next_boards[i] == next_boards_v1[i]) {
+  //     cerr << "\033[32mOK\033[0m" << "\t|\t"; // Green text for match
+  //   } else {
+  //     cerr << "\033[31mNOK\033[0m" << "\t|\t"; // Red text for mismatch
+  //   }
+  //   cerr << "next_boards[" << i << "] = " << next_boards[i] << "\t|\t";
+  //   cerr << "next_boards_v1[" << i << "] = " << next_boards_v1[i] << endl;
+  // }
+  assert(next_boards == next_boards_v1);
+  // cerr << "\033[32mOK\033[0m" << endl; // Green text for match
+}
+
 void append_all_legal_moves(unordered_map<int32_t, int32_t> &positions_to_check,
                             int32_t &result, const int32_t &current_depth,
                             const int32_t &max_depth,
                             int32_t &num_seen_leaf_nodes) {
   unordered_map<int32_t, int32_t> board_counts_for_next_depth;
-  // int left_to_check = positions_to_check.size();
+  // int32_t left_to_check = positions_to_check.size();
 
   for (auto &position : positions_to_check) {
     // left_to_check--;
@@ -247,11 +301,14 @@ void append_all_legal_moves(unordered_map<int32_t, int32_t> &positions_to_check,
     } else {
       // Calculate next positions
 
-      // TODO Clean this up to remove the redundancy after validating the tests
-      // next_boards = calculate_next_captures_v2(position.first);
-      // assert(next_boards == calculate_next_captures(position.first));
+      next_boards = calculate_next_captures_v2(position.first);
 
-      next_boards = calculate_next_captures(position.first);
+      // TODO Clean this up to remove the redundancy after validating the
+      // tests
+      // For testing only
+      // assert_functional_equivalence_v2(position.first, next_boards);
+
+      // next_boards = calculate_next_captures(position.first);
 
       if (!next_boards.empty()) {
         // Store the computed next positions for this board state
