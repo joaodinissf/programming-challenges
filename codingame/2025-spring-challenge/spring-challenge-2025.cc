@@ -16,6 +16,8 @@ using namespace std;
 // TODO And then it would be possible to compute this by doing (tree(basenode) -
 // tree(basenode after max depth))
 
+#define VECTORIZE_INPUT true // Keep this true
+
 const int32_t DIGITS_MASK[9] = {
     100000000, 10000000, 1000000, 100000, 10000, 1000, 100, 10, 1,
 };
@@ -116,6 +118,7 @@ vector<int32_t> calculate_next_captures_v2(const int32_t &position) {
   vector<int32_t> next_positions;
   next_positions.reserve(8);
 
+#ifdef VECTORIZE_INPUT
   // There will be a lot of reuse, so worth creating
   int32_t position_as_vector[9];
   int32_t current_position = position;
@@ -123,12 +126,16 @@ vector<int32_t> calculate_next_captures_v2(const int32_t &position) {
     position_as_vector[i] = current_position % 10;
     current_position /= 10;
   }
+#endif
 
   vector<bool> should_place_die_with_value_1(9, true);
   for (const vector<int32_t> &capturing_possibility : CAPTURING_POSSIBILITIES) {
     const int32_t digit = capturing_possibility[0];
+#ifdef VECTORIZE_INPUT
     if (position_as_vector[digit] != 0) {
-      // if (get_board_pos(position, digit) != 0) {
+#else
+    if (get_board_pos(position, digit) != 0) {
+#endif
       // This is not a valid position to place a die
       // This optimizes the check further below
       should_place_die_with_value_1[digit] = false;
@@ -139,9 +146,12 @@ vector<int32_t> calculate_next_captures_v2(const int32_t &position) {
     bool abort_search = false;
     int32_t capture_sum = 0;
     for (uint32_t k = 1; k < capturing_possibility.size(); k++) {
-      // capture_sum += get_board_pos(position, capturing_possibility[k]);
       if (position_as_vector[capturing_possibility[k]] > 0) {
+#ifdef VECTORIZE_INPUT
         capture_sum += position_as_vector[capturing_possibility[k]];
+#else
+        capture_sum += get_board_pos(position, capturing_possibility[k]);
+#endif
       } else {
         abort_search = true;
         break;
@@ -160,8 +170,11 @@ vector<int32_t> calculate_next_captures_v2(const int32_t &position) {
       // Remove the dice from the neighbors
       for (uint32_t k = 1; k < capturing_possibility.size(); k++) {
         next_position -= DIGITS_MASK[capturing_possibility[k]] *
+#ifdef VECTORIZE_INPUT
                          position_as_vector[capturing_possibility[k]];
-        //  get_board_pos(position, capturing_possibility[k]);
+#else
+                         get_board_pos(position, capturing_possibility[k]);
+#endif
         ;
       }
 
