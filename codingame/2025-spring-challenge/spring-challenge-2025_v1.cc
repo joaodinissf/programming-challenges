@@ -16,7 +16,7 @@ using namespace std;
 // TODO And then it would be possible to compute this by doing (tree(basenode) -
 // tree(basenode after max depth))
 
-#define VECTORIZE_INPUT true // Keep this true
+#define VECTORIZE_INPUT 1 // Keep this true
 
 const int32_t DIGITS_MASK[9] = {
     100000000, 10000000, 1000000, 100000, 10000, 1000, 100, 10, 1,
@@ -80,10 +80,11 @@ int32_t CAPTURE_COUNTS[11] = {2, 2, 2, 3, 2, 2, 3, 2, 3, 3, 4};
 // Cache to store computed next positions for each board state
 unordered_map<int32_t, vector<int32_t>> next_positions_cache;
 
-int32_t inline get_board_pos(int32_t board, int32_t x, int32_t y) {
+int32_t inline get_board_pos(const int32_t &board, const int32_t &x,
+                             const int32_t &y) {
   return board / DIGITS_MASK[x * 3 + y] % 10;
 }
-int32_t inline get_board_pos(int32_t board, int32_t offset) {
+int32_t inline get_board_pos(const int32_t &board, const int32_t &offset) {
   return board / DIGITS_MASK[offset] % 10;
 }
 
