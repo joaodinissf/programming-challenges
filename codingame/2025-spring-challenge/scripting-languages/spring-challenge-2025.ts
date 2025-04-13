@@ -1,4 +1,5 @@
 
+type StateAndDepth = string;
 type StateRaw = number;
 type Score = number;
 type TransformationFunction = (stateRaw: StateRaw) => StateRaw;
@@ -10,6 +11,7 @@ type State = {
 let maxDepth = 1;
 
 const nextStatesCache: Record<StateRaw, State[]> = {};
+const scoreCache: Record<StateAndDepth, Score> = {}; // cache the scores for each (state,depth) pair (must keep depth because score is not unique, depends how deep you are)
 
 function getInput(): { initialState: StateRaw, inputMaxDepth: number } {
   // TODO: already implemnted in C++
@@ -51,7 +53,10 @@ function calculateNextStates(s: State): State[] {
 function calculateScore(currentState: State, depth: number): Score {
   const { canonicalState, transform } = currentState;
 
-  // Opt: add a score cache(gs_raw, d)
+  const stateAndDepth = `${canonicalState}-${depth}`; // can improve with a pair, if pair can be hashed
+  if (scoreCache[stateAndDepth] !== undefined) {
+    return scoreCache[stateAndDepth];
+  }
 
   if (depth === maxDepth) {
     const currentStateRaw = transform(canonicalState);
@@ -67,7 +72,11 @@ function calculateScore(currentState: State, depth: number): Score {
     const nextStateScoreTransformed = transform(nextStateScore as StateRaw) as Score;
     nextStatesScores.push(nextStateScoreTransformed);
   }
-  return nextStatesScores.reduce((acc, score) => acc + score, 0);
+
+  // populate score cache and return
+  const result = nextStatesScores.reduce((acc, score) => acc + score, 0);
+  scoreCache[stateAndDepth] = result;
+  return result;
 }
 
 function main() {
