@@ -1,7 +1,23 @@
 use aoc_2025::read_input;
-use std::cmp::max;
+
+fn solve_simpler(input: &str) -> String {
+    let mut joltage = 0;
+
+    for line in input.lines() {
+        let chars: Vec<u32> = line.chars().map(|c| c.to_digit(10).unwrap()).collect();
+
+        let max_1 = chars[..chars.len() - 1].iter().max().unwrap();
+        let max_1_ix = chars.iter().position(|x| x == max_1).unwrap();
+
+        let max_2 = chars[max_1_ix + 1..chars.len()].iter().max().unwrap();
+
+        joltage += max_1 * 10 + max_2;
+    }
+    format!("{}", joltage)
+}
+
 fn solve(input: &str) -> String {
-    let mut secret = 0;
+    let mut joltage = 0;
 
     for line in input.lines() {
         let chars: Vec<u32> = line.chars().filter_map(|c| c.to_digit(10)).collect();
@@ -27,16 +43,18 @@ fn solve(input: &str) -> String {
                 max_2 = *c;
             }
         }
-        let current = max_1 * 10 + max_2;
-        println!("{} --> {} {}", line, max_1, max_2);
-        secret += current;
+
+        joltage += max_1 * 10 + max_2;
     }
-    format!("{}", secret)
+    format!("{}", joltage)
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let contents = read_input(file!())?;
     let result = solve(&contents);
+
+    assert_eq!(result, solve_simpler(&contents));
+
     println!("{}", result);
     Ok(())
 }
